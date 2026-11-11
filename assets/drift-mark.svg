@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="DRIFT logo">
+<defs>
+  <linearGradient id="surface" x1="6" y1="6" x2="58" y2="58" gradientUnits="userSpaceOnUse">
+    <stop stop-color="#AA96FF"/>
+    <stop offset=".53" stop-color="#7E69EB"/>
+    <stop offset="1" stop-color="#5142AE"/>
+  </linearGradient>
+  <linearGradient id="spark" x1="36" y1="22" x2="46" y2="36" gradientUnits="userSpaceOnUse">
+    <stop stop-color="#8EF5E7"/>
+    <stop offset="1" stop-color="#4BD7CB"/>
+  </linearGradient>
+</defs>
+<rect x="1" y="1" width="62" height="62" rx="18" fill="url(#surface)"/>
+<rect x="1.75" y="1.75" width="60.5" height="60.5" rx="17.25" fill="none" stroke="#FFFFFF" stroke-opacity=".24" stroke-width="1.5"/>
+<path d="M43 19.5a17 17 0 0 0-25.3 21.4c1.1 2.2 2.8 4.1 4.6 5.5L20.4 52 29 47a17 17 0 0 0 21-13.6" fill="none" stroke="#fff" stroke-width="5.3" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M43.8 16.2c-2.7 3.4-5 7-6.8 11.4l-2.7 7.5 7.3-3.1c3.3-1.4 6.3-3.3 9-5.6" fill="none" stroke="url(#spark)" stroke-width="4.8" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="46.3" cy="15.1" r="2.2" fill="#E9FFFA"/>
+</svg>

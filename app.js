@@ -44,7 +44,7 @@ const iconPaths = {
   logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>'
 };
 const ico = (name, size = 20) => '<svg class="ui-icon" viewBox="0 0 24 24" width="' + size + '" height="' + size + '" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (iconPaths[name] || iconPaths.chat) + '</svg>';
-const brand = (compact = false) => '<span class="brand"><span class="logo">' + ico('chat', 22) + '</span>' + (compact ? '' : '<b>drift<span class="brand-period">.</span></b>') + '</span>';
+const brand = (compact = false) => '<span class="brand"><span class="logo"><img class="brand-logo-image" src="./assets/drift-mark.svg" alt="" width="42" height="42" decoding="async"></span>' + (compact ? '' : '<b>drift<span class="brand-period">.</span></b>') + '</span>';
 function timeLabel(value) {
   if (!value) return '';
   const date = new Date(value);
@@ -359,12 +359,38 @@ function settingsPane() {
       state.blocks.map(b => '<div class="row">' + avatar(b.other,38) + '<div class="row-main"><b>'+esc(b.other.display_name)+'</b><small>@'+esc(b.other.username)+'</small></div><button class="ghost" data-unblock="'+esc(b.other.id)+'">Unblock</button></div>').join('') +
       '<div class="settings-signout"><button class="ghost full" data-action="signout">' + ico('logout',18) + ' Sign out of DRIFT</button></div></section></div></div></section>';
 }
+function contextPane() {
+  if (state.view !== 'chats' || !state.active) return '';
+  const c = state.chats.find(item => item.id === state.active);
+  if (!c) return '';
+  const isGroup = c.type === 'group';
+  const title = labelFor(c);
+  const subtitle = isGroup ? 'Private group conversation' : 'Your direct conversation';
+  return '<aside class="context-pane" aria-label="Conversation information">' +
+    '<div class="context-heading"><span class="eyebrow">CONVERSATION</span><h3>Details</h3></div>' +
+    '<div class="context-profile"><span class="context-profile-mark ' + (isGroup?'group-mark':'') + '">' +
+      (isGroup ? ico('friends',30) : initial(c.other_display_name)) + '</span>' +
+      '<h4>' + esc(title) + '</h4><p>' + subtitle + '</p></div>' +
+    '<div class="context-section"><div class="context-section-label">ABOUT THIS CHAT</div>' +
+      '<div class="context-info-line">' + ico(isGroup?'friends':'lock',18) +
+        '<span><strong>' + (isGroup ? Number(c.member_count) + ' members' : 'Direct messages') + '</strong><small>' +
+        (isGroup ? 'Group conversation' : 'Only chat members can read messages') + '</small></span></div>' +
+      '<div class="context-info-line">' + ico('chat',18) +
+        '<span><strong>Messages</strong><small>Saved to your DRIFT account</small></span></div></div>' +
+    '<div class="context-section"><div class="context-section-label">QUICK ACTIONS</div>' +
+      '<button class="context-action" data-action="details">' + ico('settings',18) + '<span>Conversation settings</span>' + ico('arrow',16) + '</button>' +
+      '<button class="context-action" data-view="friends">' + ico('userplus',18) + '<span>Manage friends</span>' + ico('arrow',16) + '</button>' +
+      '<button class="context-action" data-action="newgroup">' + ico('plus',18) + '<span>Create a group</span>' + ico('arrow',16) + '</button></div>' +
+    '<div class="context-spacer"></div>' +
+    '<div class="context-privacy">' + ico('shield',19) + '<strong>Just your circle.</strong><p>Your messages are visible only to conversation members. They are not end-to-end encrypted.</p></div>' +
+    '</aside>';
+}
 function render() {
   if (!state.user) return authScreen();
   if (!state.profile) return;
   document.documentElement.style.setProperty('--accent', COLORS[state.profile.accent] || COLORS.violet);
-  root.innerHTML = '<div class="layout '+(state.view==='chats'&&state.active?'show-chat':'')+' '+(state.view!=='chats'?'no-sidebar':'')+'">' +
-    nav() + (state.view==='chats'?sidebar():'') + (state.view==='chats'?chatPane():state.view==='friends'?friendsPane():settingsPane()) +
+  root.innerHTML = '<div class="layout '+(state.view==='chats'&&state.active?'show-chat with-context':'')+' '+(state.view!=='chats'?'no-sidebar':'')+'">' +
+    nav() + (state.view==='chats'?sidebar():'') + (state.view==='chats'?chatPane():state.view==='friends'?friendsPane():settingsPane()) + contextPane() +
     '</div>' + (state.modal?modalHtml():'');
   connect();
 }

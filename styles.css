@@ -345,3 +345,31 @@ p{line-height:1.6}
   .side-heading{padding-top:17px}
   .rail-brand{margin-bottom:20px}
 }
+
+/* Message alert preferences and clickable popup notifications */
+.notification-settings{padding:18px 16px;margin:18px 0 24px;background:#282e42;border:1px solid #42465e;border-radius:14px}
+.notification-title{display:flex;align-items:flex-start;gap:12px;margin-bottom:17px;color:#c9bbff}
+.notification-title .ui-icon{margin-top:3px}
+.notification-title h3{font-size:14px;color:#f5f4ff;margin:0 0 5px}
+.notification-title p{font-size:11px;color:#aeb7cb;margin:0}
+.notification-toggle{display:flex;gap:11px;align-items:center;padding:10px 1px;border-top:1px solid #ffffff0c;font-size:12px;font-weight:650;color:#d5dbee;cursor:pointer}
+.notification-toggle input{width:19px;height:19px;min-width:19px;accent-color:#a38dff}
+.notification-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:16px}
+.notification-actions .primary,.notification-actions .ghost{font-size:11px;padding:10px 12px}
+.notification-status{font-size:10px!important;color:#9da9bf!important;line-height:1.7;margin:13px 0 0!important}
+.message-notification-popup{
+  z-index:200;position:fixed;right:22px;top:22px;
+  display:flex;align-items:center;gap:12px;width:min(360px,calc(100vw - 32px));min-height:77px;
+  padding:13px 14px;text-align:left;color:#f8f8ff;
+  background:#242a3ff5;border:1px solid #7168a5;border-radius:15px;
+  backdrop-filter:blur(16px);box-shadow:0 16px 50px #0009;
+  cursor:pointer;animation:drift-notice-in .22s ease-out;
+}
+.message-notification-popup:hover{background:#303653}
+.message-notification-popup img{height:40px;width:40px;flex-shrink:0;border-radius:10px}
+.message-notification-text{display:grid;gap:4px;min-width:0;flex:1}
+.message-notification-text strong{font-size:13px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.message-notification-text small{font-size:12px;line-height:1.5;color:#c1c9dd;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@keyframes drift-notice-in{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:700px){.message-notification-popup{right:12px;top:12px}.notification-actions{flex-direction:column}.notification-actions button{width:100%}}
+@media(prefers-reduced-motion:reduce){.message-notification-popup{animation:none}}

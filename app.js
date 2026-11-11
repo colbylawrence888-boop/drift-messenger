@@ -23,6 +23,152 @@ function note(text) {
   clearTimeout(note.timeout);
   note.timeout = setTimeout(() => { toastArea.innerHTML = ''; }, 4400);
 }
+
+const notificationPrefs = {
+  enabled: true,
+  previews: false
+};
+const deliveredNotificationIds = new Set();
+let notificationPopupTimeout = null;
+const originalPageTitle = 'DRIFT — Private Messenger';
+function notificationKey() {
+  return 'drift_notifications_' + (state.user?.id || 'guest');
+}
+function loadNotificationSettings() {
+  notificationPrefs.enabled = true;
+  notificationPrefs.previews = false;
+  try {
+    const saved = JSON.parse(localStorage.getItem(notificationKey()) || '{}');
+    if (typeof saved.enabled === 'boolean') notificationPrefs.enabled = saved.enabled;
+    if (typeof saved.previews === 'boolean') notificationPrefs.previews = saved.previews;
+  } catch {}
+}
+function saveNotificationSettings() {
+  try { localStorage.setItem(notificationKey(), JSON.stringify(notificationPrefs)); } catch {}
+}
+function browserNotificationAvailable() {
+  return window.isSecureContext && ('Notification' in window);
+}
+function notificationPermission() {
+  return browserNotificationAvailable() ? Notification.permission : 'unsupported';
+}
+function updateUnreadTitle() {
+  const unread = state.chats.reduce((sum, chat) => sum + Number(chat.unread || 0), 0);
+  document.title = unread > 0 ? '(' + Math.min(99, unread) + ') ' + originalPageTitle : originalPageTitle;
+}
+function dismissMessagePopup() {
+  clearTimeout(notificationPopupTimeout);
+  document.getElementById('drift-message-popup')?.remove();
+}
+function displayMessagePopup(name, text, conversationId) {
+  dismissMessagePopup();
+  if (document.visibilityState !== 'visible') return;
+  const popup = document.createElement('button');
+  popup.type = 'button';
+  popup.className = 'message-notification-popup';
+  popup.id = 'drift-message-popup';
+  const image = document.createElement('img');
+  image.src = './assets/drift-mark.svg?v=5';
+  image.alt = '';
+  image.width = 40;
+  image.height = 40;
+  const copy = document.createElement('span');
+  copy.className = 'message-notification-text';
+  const heading = document.createElement('strong');
+  heading.textContent = name;
+  const body = document.createElement('small');
+  body.textContent = text;
+  copy.append(heading, body);
+  popup.append(image, copy);
+  popup.addEventListener('click', async () => {
+    dismissMessagePopup();
+    try { await chooseChat(conversationId); } catch (err) { note(err?.message || 'Could not open conversation'); }
+  });
+  document.body.append(popup);
+  notificationPopupTimeout = setTimeout(dismissMessagePopup, 6500);
+}
+function showDesktopNotification(name, text, conversationId) {
+  if (notificationPermission() !== 'granted') return;
+  if (document.visibilityState === 'visible' && document.hasFocus()) return;
+  try {
+    const notification = new Notification(name, {
+      body: text,
+      icon: './assets/drift-mark.svg?v=5',
+      tag: 'drift-chat-' + conversationId,
+      renotify: true
+    });
+    notification.onclick = () => {
+      window.focus();
+      void chooseChat(conversationId).catch(err => note(err?.message || 'Could not open conversation'));
+      notification.close();
+    };
+  } catch (err) {
+    console.warn('DRIFT desktop notification could not be displayed:', err);
+  }
+}
+async function handleIncomingMessage(payload) {
+  if (payload.eventType !== 'INSERT' || !payload.new || !state.user) return;
+  const incoming = payload.new;
+  if (incoming.sender_id === state.user.id || !incoming.id || !incoming.conversation_id) return;
+  if (deliveredNotificationIds.has(incoming.id)) return;
+  deliveredNotificationIds.add(incoming.id);
+  if (deliveredNotificationIds.size > 300) deliveredNotificationIds.delete(deliveredNotificationIds.values().next().value);
+  if (!notificationPrefs.enabled) return;
+  if (state.active === incoming.conversation_id && document.visibilityState === 'visible' && document.hasFocus()) return;
+  const chat = state.chats.find(c => c.id === incoming.conversation_id);
+  let name = chat ? labelFor(chat) : 'New DRIFT message';
+  if (!chat || chat.type === 'group') {
+    try {
+      const sender = (await getProfiles([incoming.sender_id]))[0];
+      if (sender?.display_name) name = chat?.type === 'group' ? sender.display_name + ' · ' + labelFor(chat) : sender.display_name;
+    } catch {}
+  }
+  const messageText = notificationPrefs.previews && typeof incoming.body === 'string'
+    ? incoming.body.slice(0, 160)
+    : 'You have a new message';
+  if (document.visibilityState === 'visible') displayMessagePopup(name, messageText, incoming.conversation_id);
+  else showDesktopNotification(name, messageText, incoming.conversation_id);
+}
+async function enableDesktopNotifications() {
+  if (!browserNotificationAvailable()) {
+    note('Desktop notifications are not supported here. In-app alerts still work while DRIFT is open.');
+    return;
+  }
+  if (Notification.permission === 'denied') {
+    note('Notifications are blocked in your browser. Allow them in the site settings next to the address bar.');
+    return;
+  }
+  let permission = Notification.permission;
+  if (permission === 'default') permission = await Notification.requestPermission();
+  if (permission === 'granted') {
+    notificationPrefs.enabled = true;
+    saveNotificationSettings();
+    note('Desktop notifications enabled. DRIFT must remain open in a tab.');
+  } else {
+    note('Browser notifications were not allowed. In-app alerts are still available.');
+  }
+  if (state.user && state.view === 'settings') render();
+}
+function testDesktopNotification() {
+  if (!notificationPrefs.enabled) {
+    note('Turn on message alerts in settings first.');
+    return;
+  }
+  if (notificationPermission() === 'granted') {
+    try {
+      const n = new Notification('DRIFT notifications are ready', {
+        body: 'You will get a desktop alert for new messages while DRIFT is open.',
+        icon: './assets/drift-mark.svg?v=5'
+      });
+      n.onclick = () => { window.focus(); n.close(); };
+    } catch (err) {
+      note('Could not display the test notification: ' + (err?.message || 'unknown error'));
+    }
+  } else {
+    displayMessagePopup('DRIFT test alert', 'This is how an incoming message will appear in your browser.', '');
+  }
+}
+
 const initial = str => esc((str || '?').trim().charAt(0).toUpperCase());
 const avatar = (p, size = 43) => '<span class="avatar" style="height:' + size + 'px;width:' + size + 'px;font-size:' + Math.floor(size / 2.6) + 'px">' + (p?.signedUrl ? '<img src="' + esc(p.signedUrl) + '" alt="">' : initial(p?.display_name)) + '</span>';
 const iconPaths = {
@@ -190,6 +336,7 @@ async function startSignedIn() {
       return;
     }
     state.profile = await decorated(p);
+    loadNotificationSettings();
     // Display signed-in UI before optional chats load, so a chat error doesn't look like a failed login.
     render();
     try { await refreshAll(); render(); }
@@ -224,6 +371,7 @@ async function refreshAll() {
   state.friends = fRows.map(f => ({ ...f, other: map[f.user_a === state.user.id ? f.user_b : f.user_a] })).filter(f=>f.other);
   state.requests = rRows.map(f => ({ ...f, other: map[f.requester_id === state.user.id ? f.recipient_id : f.requester_id], direction: f.requester_id === state.user.id ? 'out' : 'in' })).filter(f=>f.other);
   state.blocks = bRows.map(b => ({ ...b, other: map[b.blocked_id] })).filter(b=>b.other);
+  updateUnreadTitle();
 }
 function closeRealtime() {
   state.channels.forEach(ch => sb.removeChannel(ch));
@@ -240,10 +388,23 @@ function openRealtime() {
   state.channels.push(channel);
   const messages = sb.channel('drift-messages-' + me)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, async payload => {
-      if (state.active && payload.new?.conversation_id === state.active) {
-        await loadMessages(); render();
+      // Realtime sends only rows allowed by Supabase RLS to this signed-in member.
+      // The notification uses the INSERT event; it never alerts on edits or deletions.
+      try {
+        const relatedChat = state.chats.some(c => c.id === payload.new?.conversation_id);
+        if (!relatedChat) await refreshAll();
+        await handleIncomingMessage(payload);
+        if (state.active && payload.new?.conversation_id === state.active) {
+          await loadMessages();
+          render();
+          scrollBottom();
+        } else {
+          await refreshAll();
+          render();
+        }
+      } catch (err) {
+        console.error('DRIFT realtime update failed', err);
       }
-      await refreshAll(); render();
     }).subscribe();
   state.channels.push(messages);
 }
@@ -353,6 +514,11 @@ function settingsPane() {
         '<label class="checkrow"><input type="checkbox" name="allow" '+(p.allow_friend_requests?'checked':'')+'><span>Allow new friend requests</span></label>' +
         '<button type="submit" class="primary full">' + ico('check',17) + ' Save profile changes</button></form></div></section>' +
     '<section class="card privacy-settings"><div class="card-title"><span class="card-icon">' + ico('shield',21) + '</span><div><h3>Privacy & security</h3><p>Your account. Your boundaries.</p></div></div>' +
+      '<div class="notification-settings"><div class="notification-title">' + ico('chat',21) + '<div><h3>Message notifications</h3><p>Get an alert when a friend sends a message.</p></div></div>' +
+      '<label class="notification-toggle"><input type="checkbox" id="notify-enabled" ' + (notificationPrefs.enabled ? 'checked' : '') + '><span>In-app message alerts</span></label>' +
+      '<label class="notification-toggle"><input type="checkbox" id="notify-preview" ' + (notificationPrefs.previews ? 'checked' : '') + '><span>Show message text in alerts</span></label>' +
+      '<div class="notification-actions"><button class="primary" type="button" data-action="enableNotifications">' + ico('check',16) + (notificationPermission() === 'granted' ? 'Desktop notifications enabled' : 'Enable desktop notifications') + '</button><button class="ghost" type="button" data-action="testNotifications">Test alert</button></div>' +
+      '<p class="notification-status">Browser permission: ' + esc(notificationPermission()) + '. Desktop alerts work while DRIFT is open in a browser tab, including when the tab is in the background. Closed-tab alerts need a separate push service.</p></div>' +
       '<div class="privacy-feature">' + ico('lock',19) + '<div><b>Friends-first messaging</b><p>Only accepted friends can start private chats with you. Messages are not end-to-end encrypted.</p></div></div>' +
       '<div class="settings-section-title"><h3>Blocked accounts</h3><span class="pill">' + state.blocks.length + '</span></div>' +
       (!state.blocks.length ? '<div class="blocked-empty">' + ico('shield',22) + '<span>No blocked accounts. You are all set.</span></div>' : '') +
@@ -428,6 +594,16 @@ function connect() {
   $('#profile-form')?.addEventListener('submit',saveProfile);
   $('#report-form')?.addEventListener('submit',saveReport);
   $('#avatar-file')?.addEventListener('change',e=>{void uploadAvatar(e.target.files[0]);});
+  $('#notify-enabled')?.addEventListener('change',e=>{
+    notificationPrefs.enabled = e.target.checked;
+    saveNotificationSettings();
+    note(notificationPrefs.enabled ? 'Message alerts turned on' : 'Message alerts turned off');
+  });
+  $('#notify-preview')?.addEventListener('change',e=>{
+    notificationPrefs.previews = e.target.checked;
+    saveNotificationSettings();
+    note(notificationPrefs.previews ? 'Message previews enabled' : 'Message previews hidden');
+  });
   $('#overlay')?.addEventListener('click',e=>{if(e.target.id==='overlay'){state.modal=null;render();}});
 }
 async function friendResponse(id,accept) {
@@ -502,12 +678,14 @@ async function saveReport(e) {
   });
 }
 async function act(action) {
+  if(action==='enableNotifications'){await enableDesktopNotifications();return;}
+  if(action==='testNotifications'){testDesktopNotification();return;}
   if(action==='newgroup'){state.modal='newgroup';render();return;}
   if(action==='details'){state.modal='details';render();return;}
   if(action==='closemodal'){state.modal=null;render();return;}
   if(action==='back'){state.active=null;render();return;}
   if(action==='older'){if(state.olderCursor)await withBusy(async()=>{await loadMessages(state.olderCursor);render();});return;}
-  if(action==='signout'){closeRealtime();await sb.auth.signOut();state.user=null;state.profile=null;state.active=null;state.modal=null;state.chats=[];authScreen();return;}
+  if(action==='signout'){closeRealtime();dismissMessagePopup();await sb.auth.signOut();state.user=null;state.profile=null;state.active=null;state.modal=null;state.chats=[];document.title=originalPageTitle;authScreen();return;}
   if(action==='reportcontact'){state.modal='report';render();return;}
   const c=state.chats.find(c=>c.id===state.active);if(!c)return;
   if(action==='blockcontact'){if(!confirm('Block this user? They will no longer be able to send you friend requests or new messages.'))return;await withBusy(async()=>{requireOk(await sb.rpc('block_user',{_other:c.other_id}));state.modal=null;state.active=null;await refreshAll();render();note('User blocked');});return;}

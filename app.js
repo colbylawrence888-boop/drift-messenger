@@ -44,7 +44,7 @@ const iconPaths = {
   logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>'
 };
 const ico = (name, size = 20) => '<svg class="ui-icon" viewBox="0 0 24 24" width="' + size + '" height="' + size + '" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (iconPaths[name] || iconPaths.chat) + '</svg>';
-const brand = (compact = false) => '<span class="brand"><span class="logo"><img class="brand-logo-image" src="./assets/drift-mark.svg" alt="" width="42" height="42" decoding="async"></span>' + (compact ? '' : '<b>drift<span class="brand-period">.</span></b>') + '</span>';
+const brand = (compact = false) => '<span class="brand"><span class="logo"><img class="brand-logo-image" src="./assets/drift-mark.svg?v=5" alt="" width="42" height="42" decoding="async"></span>' + (compact ? '' : '<b>drift<span class="brand-period">.</span></b>') + '</span>';
 function timeLabel(value) {
   if (!value) return '';
   const date = new Date(value);

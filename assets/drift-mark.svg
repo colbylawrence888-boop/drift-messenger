@@ -1,18 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="DRIFT logo">
-<defs>
-  <linearGradient id="surface" x1="6" y1="6" x2="58" y2="58" gradientUnits="userSpaceOnUse">
-    <stop stop-color="#AA96FF"/>
-    <stop offset=".53" stop-color="#7E69EB"/>
-    <stop offset="1" stop-color="#5142AE"/>
-  </linearGradient>
-  <linearGradient id="spark" x1="36" y1="22" x2="46" y2="36" gradientUnits="userSpaceOnUse">
-    <stop stop-color="#8EF5E7"/>
-    <stop offset="1" stop-color="#4BD7CB"/>
-  </linearGradient>
-</defs>
-<rect x="1" y="1" width="62" height="62" rx="18" fill="url(#surface)"/>
-<rect x="1.75" y="1.75" width="60.5" height="60.5" rx="17.25" fill="none" stroke="#FFFFFF" stroke-opacity=".24" stroke-width="1.5"/>
-<path d="M43 19.5a17 17 0 0 0-25.3 21.4c1.1 2.2 2.8 4.1 4.6 5.5L20.4 52 29 47a17 17 0 0 0 21-13.6" fill="none" stroke="#fff" stroke-width="5.3" stroke-linecap="round" stroke-linejoin="round"/>
-<path d="M43.8 16.2c-2.7 3.4-5 7-6.8 11.4l-2.7 7.5 7.3-3.1c3.3-1.4 6.3-3.3 9-5.6" fill="none" stroke="url(#spark)" stroke-width="4.8" stroke-linecap="round" stroke-linejoin="round"/>
-<circle cx="46.3" cy="15.1" r="2.2" fill="#E9FFFA"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<defs><linearGradient id="bg" x1="4" y1="3" x2="59" y2="60" gradientUnits="userSpaceOnUse"><stop stop-color="#221247"/><stop offset="1" stop-color="#071F55"/></linearGradient><linearGradient id="bubble" x1="12" y1="13" x2="48" y2="51" gradientUnits="userSpaceOnUse"><stop stop-color="#B85CFF"/><stop offset=".52" stop-color="#6773FF"/><stop offset="1" stop-color="#12CDE1"/></linearGradient></defs>
+<rect x="1" y="1" width="62" height="62" rx="15" fill="url(#bg)" stroke="#8975CE" stroke-opacity=".5" stroke-width="1"/>
+<path d="M15 51V26c0-8.5 6-14 14.7-14H34c10.7 0 18.5 7.8 18.5 18.2S44.7 48 34 48H24L15 55Z" fill="none" stroke="url(#bubble)" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="28" cy="30" r="2.6" fill="#FFF"/><circle cx="36" cy="30" r="2.6" fill="#FFF"/><circle cx="44" cy="30" r="2.6" fill="#FFF"/>
+<path d="m50 9 2.5 5.5L58 17l-5.5 2.5L50 25l-2.5-5.5L42 17l5.5-2.5Z" fill="#2DEAD8"/>
 </svg>

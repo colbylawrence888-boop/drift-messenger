@@ -25,7 +25,37 @@ function note(text) {
 }
 const initial = str => esc((str || '?').trim().charAt(0).toUpperCase());
 const avatar = (p, size = 43) => '<span class="avatar" style="height:' + size + 'px;width:' + size + 'px;font-size:' + Math.floor(size / 2.6) + 'px">' + (p?.signedUrl ? '<img src="' + esc(p.signedUrl) + '" alt="">' : initial(p?.display_name)) + '</span>';
-const brand = () => '<span class="brand"><span class="logo">◉</span><b>drift</b><span>.</span></span>';
+const iconPaths = {
+  chat: '<path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 9 9 0 0 1-4-.9L3 21l1.9-5.5A8.5 8.5 0 1 1 21 11.5Z"/><path d="M8.5 11.5h7"/>',
+  friends: '<path d="M16 20v-1.8a4.2 4.2 0 0 0-4.2-4.2H6.2A4.2 4.2 0 0 0 2 18.2V20"/><circle cx="9" cy="6.5" r="3.5"/><path d="M22 20v-1.8a4.2 4.2 0 0 0-3.1-4M16 3.2a3.5 3.5 0 0 1 0 6.7"/>',
+  settings: '<path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Z"/><path d="m19.4 13.8 1.2 1-.9 2.1-1.6-.1-1.4 1.4.1 1.6-2.1.9-1-1.2h-2l-1 1.2-2.1-.9.1-1.6-1.4-1.4-1.6.1-.9-2.1 1.2-1v-2l-1.2-1 .9-2.1 1.6.1 1.4-1.4-.1-1.6 2.1-.9 1 1.2h2l1-1.2 2.1.9-.1 1.6 1.4 1.4 1.6-.1.9 2.1-1.2 1v2Z"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/>',
+  arrow: '<path d="m5 12 14 0m-6-6 6 6-6 6"/>',
+  back: '<path d="M19 12H5m6-6-6 6 6 6"/>',
+  send: '<path d="m21 3-9.5 18-2.3-8.2L1 10.5 21 3Z"/><path d="M9.2 12.8 21 3"/>',
+  more: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
+  shield: '<path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z"/><path d="m9 12 2 2 4-4"/>',
+  lock: '<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
+  group: '<rect x="3" y="4" width="18" height="16" rx="4"/><path d="M7 10h10M7 14h7"/>',
+  spark: '<path d="m12 2 2.2 7.8L22 12l-7.8 2.2L12 22l-2.2-7.8L2 12l7.8-2.2L12 2Z"/>',
+  check: '<path d="m4 12 5 5L20 6"/>',
+  userplus: '<path d="M16 20v-2.4a4.6 4.6 0 0 0-4.6-4.6H7.6A4.6 4.6 0 0 0 3 17.6V20"/><circle cx="9.5" cy="6.5" r="3.5"/><path d="M20 7v7m-3.5-3.5h7"/>',
+  logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>'
+};
+const ico = (name, size = 20) => '<svg class="ui-icon" viewBox="0 0 24 24" width="' + size + '" height="' + size + '" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (iconPaths[name] || iconPaths.chat) + '</svg>';
+const brand = (compact = false) => '<span class="brand"><span class="logo">' + ico('chat', 22) + '</span>' + (compact ? '' : '<b>drift<span class="brand-period">.</span></b>') + '</span>';
+function timeLabel(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const diff = Date.now() - date.getTime();
+  if (diff < 60000) return 'Now';
+  if (diff < 3600000) return Math.floor(diff/60000) + 'm';
+  if (diff < 86400000) return Math.floor(diff/3600000) + 'h';
+  if (diff < 604800000) return Math.floor(diff/86400000) + 'd';
+  return date.toLocaleDateString(undefined, {month: 'short', day: 'numeric'});
+}
 const busyText = value => state.busy ? 'Working...' : value;
 function withBusy(task) {
   if (state.busy) return;
@@ -48,30 +78,48 @@ async function decorated(p) {
 }
 function authScreen() {
   const m = state.authMode;
-  let title = m === 'signup' ? 'Create your account' : m === 'forgot' ? 'Reset password' : m === 'reset' ? 'Choose a new password' : 'Welcome back';
-  let subtitle = m === 'signup' ? 'Create an account to start talking with your friends.' : m === 'forgot' ? 'Get a password reset email if you have an account.' : m === 'reset' ? 'Enter the new password for your account.' : 'Sign in to your private conversations.';
-  root.innerHTML = '<main class="auth-screen"><section class="auth-box">' + brand() +
-    '<h1>' + title + '</h1><p>' + subtitle + '</p>' +
-    '<form id="auth-form">' +
-    (m === 'signup' ? '<label>Username<input name="username" required autocomplete="username" pattern="[a-z0-9_]{3,20}" minlength="3" maxlength="20" placeholder="your_username"></label><label>Display name<input name="display" maxlength="40" placeholder="Your name"></label>' : '') +
-    (m === 'reset' ? '' : '<label>Email<input name="email" type="email" autocomplete="email" placeholder="you@example.com" required></label>') +
-    (m === 'forgot' ? '' : '<label>' + (m === 'reset' ? 'New password' : 'Password') + '<input type="password" name="password" minlength="8" autocomplete="' + (m === 'signin' ? 'current-password' : 'new-password') + '" required placeholder="At least 8 characters"></label>') +
-    '<button class="primary full" type="submit">' + (m === 'signup' ? 'Create account' : m === 'forgot' ? 'Send reset email' : m === 'reset' ? 'Update password' : 'Sign in') + '</button></form>' +
-    '<div class="auth-links">' + (m === 'signin' ? '<button class="link-btn" data-auth="forgot">Forgot password?</button><button class="link-btn" data-auth="signup">New here? Create account</button>' : '<button class="link-btn" data-auth="signin">Back to sign in</button>') + '</div>' +
-    '<div class="auth-warning">Sign in with your DRIFT email and password. Problems will appear as a message, so you can tell whether sign-in or chat loading failed.</div>' +
-    '</section></main>';
+  const title = m === 'signup' ? 'Create your account' : m === 'forgot' ? 'Reset your password' : m === 'reset' ? 'Choose a new password' : 'Welcome back.';
+  const subtitle = m === 'signup' ? 'A better way to stay close to your circle.' : m === 'forgot' ? "We'll send a password reset link to your inbox." : m === 'reset' ? 'Pick a new password for your DRIFT account.' : 'Pick up right where you left off.';
+  const actionText = m === 'signup' ? 'Create account' : m === 'forgot' ? 'Send reset link' : m === 'reset' ? 'Save password' : 'Sign in to DRIFT';
+  root.innerHTML = '<main class="auth-screen"><div class="auth-layout">' +
+    '<aside class="auth-showcase">' +
+      '<div class="auth-brand">' + brand() + '<span class="auth-edition">PRIVATE MESSAGING</span></div>' +
+      '<div class="showcase-center">' +
+        '<span class="hero-kicker"><i></i> A SPACE FOR YOUR PEOPLE</span>' +
+        '<h2>Good conversations.<br/><em>Better connections.</em></h2>' +
+        '<p>All your favorite people, one beautiful place. No endless feeds. Just real conversations.</p>' +
+        '<div class="showcase-visual">' +
+          '<div class="orbit-ring ring-one"></div><div class="orbit-ring ring-two"></div><div class="orbit-ring ring-three"></div>' +
+          '<div class="float-avatar fa-one">A</div><div class="float-avatar fa-two">J</div><div class="float-avatar fa-three">M</div>' +
+          '<div class="visual-panel"><div class="visual-panel-head"><span class="visual-mark">' + ico('chat',20) + '</span><span><strong>Your circle</strong><small>Always connected</small></span><span class="visual-pulse"></span></div>' +
+            '<div class="visual-message"><span class="visual-dot"></span><span class="visual-lines"><i></i><i></i></span></div>' +
+            '<div class="visual-message own"><span class="visual-lines"><i></i><i></i></span></div>' +
+            '<div class="visual-message"><span class="visual-dot accent"></span><span class="visual-lines"><i></i><i></i></span></div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="auth-showcase-foot"><span>' + ico('shield',16) + ' Private by design</span><span>Made for real friendships.</span></div>' +
+    '</aside>' +
+    '<section class="auth-box"><div class="auth-form-top"><span class="form-brand-mobile">' + brand() + '</span><span class="form-eyebrow">' + (m === 'signin' ? 'YOUR SPACE AWAITS' : 'DRIFT ACCOUNT') + '</span><h1>' + title + '</h1><p>' + subtitle + '</p></div>' +
+    '<form id="auth-form" class="form-grid">' +
+      (m === 'signup' ? '<label>Username<input name="username" required autocomplete="username" pattern="[a-z0-9_]{3,20}" minlength="3" maxlength="20" placeholder="choose_a_username"></label><label>Display name<input name="display" maxlength="40" placeholder="What should we call you?"></label>' : '') +
+      (m === 'reset' ? '' : '<label>Email address<input name="email" type="email" autocomplete="email" placeholder="you@example.com" required></label>') +
+      (m === 'forgot' ? '' : '<label>' + (m === 'reset' ? 'New password' : 'Password') + '<input type="password" name="password" minlength="8" autocomplete="' + (m === 'signin' ? 'current-password' : 'new-password') + '" required placeholder="Enter your password"></label>') +
+      '<button class="primary auth-submit full" type="submit"><span>' + actionText + '</span>' + ico('arrow',18) + '</button></form>' +
+    '<div class="auth-links">' + (m === 'signin' ? '<button class="link-btn" data-auth="forgot">Forgot password?</button><span>New to DRIFT? <button class="link-btn inline-link" data-auth="signup">Create an account</button></span>' : '<button class="link-btn" data-auth="signin">' + ico('back',15) + ' Back to sign in</button>') + '</div>' +
+    '<div class="auth-warning">' + ico('lock',15) + '<span>Your conversations stay private to their members. DRIFT uses secure account sign-in.</span></div>' +
+    '<div class="auth-legal">DRIFT <span>•</span> Your people. Your conversations.</div></section></div></main>';
   $('#auth-form').addEventListener('submit', handleAuth);
   root.querySelectorAll('[data-auth]').forEach(btn => btn.addEventListener('click', () => { state.authMode = btn.dataset.auth; authScreen(); }));
   const passwordInput = $('#auth-form input[type="password"]');
   if (passwordInput) {
     const show = document.createElement('button');
     show.type = 'button';
-    show.className = 'link-btn';
-    show.style.textAlign = 'left';
-    show.textContent = 'Show password';
+    show.className = 'password-toggle';
+    show.textContent = 'Show';
     show.addEventListener('click', () => {
       passwordInput.type = passwordInput.type === 'password' ? 'text' : 'password';
-      show.textContent = passwordInput.type === 'password' ? 'Show password' : 'Hide password';
+      show.textContent = passwordInput.type === 'password' ? 'Show' : 'Hide';
     });
     passwordInput.closest('label').appendChild(show);
   }
@@ -219,58 +267,97 @@ async function chooseChat(id) {
 function scrollBottom() { setTimeout(() => { const log = $('#chat-log'); if(log)log.scrollTop=log.scrollHeight; }, 20); }
 function labelFor(c) { return c.type === 'direct' ? c.other_display_name || c.other_username || 'Friend' : c.title || 'Group'; }
 function nav() {
-  return '<nav class="rail"><div class="logo">◉</div><div class="railnav">' +
-    [['chats','◌','Chats'],['friends','♧','Friends'],['settings','⚙','Settings']].map(a => '<button class="nav-btn ' + (state.view === a[0] ? 'active':'') + '" data-view="' + a[0] + '"><span class="glyph">' + a[1] + '</span><span>' + a[2] + '</span></button>').join('') +
-    '</div>' + avatar(state.profile,35) + '</nav>';
+  const items = [
+    ['chats','chat','Chats'],
+    ['friends','friends','Friends'],
+    ['settings','settings','Settings']
+  ];
+  return '<nav class="rail" aria-label="Main navigation">' +
+    '<div class="rail-brand">' + brand(true) + '</div>' +
+    '<div class="railnav">' + items.map(item => '<button class="nav-btn ' + (state.view === item[0] ? 'active' : '') + '" title="' + item[2] + '" data-view="' + item[0] + '">' + ico(item[1],21) + '<span>' + item[2] + '</span>' +
+      (item[0] === 'friends' && state.requests.some(r=>r.direction === 'in') ? '<i class="nav-dot"></i>' : '') + '</button>').join('') + '</div>' +
+    '<div class="rail-bottom"><span class="rail-status" title="Signed in"></span>' + avatar(state.profile,38) + '</div></nav>';
 }
 function sidebar() {
   const filtered = state.chats.filter(c => labelFor(c).toLowerCase().includes(state.chatFilter.toLowerCase()));
-  return '<aside class="sidebar"><div class="side-head"><div><div class="eyebrow">YOUR SPACE</div><h2>Messages</h2></div><button class="icon-btn" data-action="newgroup" title="Create group">＋</button></div>' +
-  '<form class="field-search" id="search-chats"><span>⌕</span><input name="q" placeholder="Search chats or messages" value="' + esc(state.chatFilter) + '"><button class="icon-btn" title="Search messages">↵</button></form>' +
-  '<div class="list-body"><div class="list-caption">CONVERSATIONS · ' + state.chats.length + '</div>' +
-  (state.searchResults.length ? state.searchResults.map(m => '<button class="chat-item" data-chat="' + esc(m.conversation_id) + '"><div class="chat-copy"><b>' + esc(m.conv_title || m.sender_display_name || 'Message') + '</b><small>' + esc(m.body) + '</small></div></button>').join('') : filtered.map(c => '<button class="chat-item ' + (state.active === c.id ? 'selected':'') + '" data-chat="' + esc(c.id) + '"><span class="avatar" style="width:43px;height:43px">' + (c.type === 'group'?'♧':esc(initial(c.other_display_name))) + '</span><span class="chat-copy"><b>' + esc(labelFor(c)) + '</b><small>' + esc(c.last_body || (c.type==='group'? c.member_count+' members':'@'+c.other_username)) + '</small></span>' + (Number(c.unread)>0?'<span class="unread">'+Number(c.unread)+'</span>':'') + '</button>').join('')) +
-  (!filtered.length && !state.searchResults.length ? '<div class="empty"><strong>Nothing here yet</strong>Add friends, then start a conversation.</div>':'') +
-  '</div><div class="side-foot"><button class="ghost full" data-view="friends">♧ Find a friend</button></div></aside>';
+  const unreadTotal = state.chats.reduce((sum,c) => sum + Number(c.unread || 0),0);
+  const username = state.profile?.display_name || 'You';
+  return '<aside class="sidebar">' +
+    '<div class="side-heading"><div class="eyebrow">YOUR INBOX</div><div class="side-title-line"><h2>Messages</h2>' + (unreadTotal ? '<span class="total-unread">' + unreadTotal + '</span>' : '') + '</div><p>Stay close. Stay connected.</p></div>' +
+    '<div class="side-actions"><button class="side-create" data-action="newgroup" title="Create a new group">' + ico('plus',18) + '<span>New group</span></button></div>' +
+    '<form class="field-search" id="search-chats">' + ico('search',18) + '<input name="q" placeholder="Search conversations" value="' + esc(state.chatFilter) + '" aria-label="Search conversations or messages"><button class="search-go" title="Search message text" aria-label="Search message text">' + ico('arrow',17) + '</button></form>' +
+    '<div class="list-body"><div class="list-caption"><span>' + (state.searchResults.length?'MESSAGE RESULTS':'RECENT CHATS') + '</span><span>' + (state.searchResults.length||filtered.length) + '</span></div>' +
+    (state.searchResults.length ? state.searchResults.map(m => '<button class="chat-item search-result" data-chat="' + esc(m.conversation_id) + '"><span class="row-avatar group">' + ico('search',17) + '</span><span class="chat-copy"><b>' + esc(m.conv_title || m.sender_display_name || 'Message') + '</b><small>' + esc(m.body) + '</small></span>' + ico('arrow',14) + '</button>').join('') :
+      filtered.map(c => '<button class="chat-item ' + (state.active === c.id ? 'selected':'') + '" data-chat="' + esc(c.id) + '">' +
+        '<span class="row-avatar ' + (c.type==='group'?'group':'') + '">' + (c.type==='group'?ico('friends',19):initial(c.other_display_name)) + '</span>' +
+        '<span class="chat-copy"><b>' + esc(labelFor(c)) + '</b><small>' + esc(c.last_body || (c.type === 'group' ? c.member_count + ' members' : 'Start a conversation')) + '</small></span>' +
+        '<span class="chat-end"><span class="time">' + timeLabel(c.last_message_at) + '</span>' + (Number(c.unread) > 0 ? '<span class="unread">' + Math.min(99,Number(c.unread)) + '</span>' : '') + '</span></button>').join('')) +
+    (!filtered.length && !state.searchResults.length ? '<div class="sidebar-empty"><span class="empty-orb">' + ico('chat',25) + '</span><h3>It starts with hello.</h3><p>Find a friend and your conversations will appear here.</p><button class="ghost" data-view="friends">' + ico('userplus',16) + ' Add a friend</button></div>' : '') +
+    '</div><div class="sidebar-account"><span class="account-avatar">' + avatar(state.profile,37) + '</span><span class="account-copy"><b>' + esc(username) + '</b><small>@' + esc(state.profile?.username || '') + '</small></span><button class="icon-btn" data-view="settings" title="Your settings">' + ico('settings',18) + '</button></div></aside>';
 }
 function chatPane() {
-  if (!state.active) return '<section class="chat-space"><div class="welcome"><span class="welcome-icon">◉</span><h2>Your conversations, your space.</h2><p>Choose a conversation or add a friend to start talking.</p><button class="primary" data-view="friends">Find friends</button></div></section>';
+  if (!state.active) return '<section class="chat-space"><div class="chat-empty">' +
+    '<div class="empty-scene"><div class="scene-grid"></div><div class="scene-ring scene-ring-a"></div><div class="scene-ring scene-ring-b"></div><span class="scene-center">' + ico('chat',38) + '</span><div class="scene-avatar scene-a">A</div><div class="scene-avatar scene-b">J</div><div class="scene-avatar scene-c">M</div></div>' +
+    '<span class="eyebrow welcome-eyebrow">GOOD TO HAVE YOU HERE</span><h2>Conversations start here<span class="heading-dot">.</span></h2><p>Pick a conversation from the left, or add someone you know to start something new.</p><button class="primary" data-view="friends">' + ico('userplus',18) + ' Find your people</button>' +
+    '<div class="welcome-foot">' + ico('lock',15) + ' Only you and your friends can see your chats</div></div></section>';
   const c = state.chats.find(c=>c.id===state.active);
-  if (!c) {state.active=null;return chatPane();}
-  return '<section class="chat-space"><div class="chat-header"><button class="icon-btn mobile-back" data-action="back">←</button>' +
-    '<span class="avatar" style="height:40px;width:40px">' + (c.type==='group'?'♧':initial(c.other_display_name)) + '</span><div class="identity"><b>' + esc(labelFor(c)) + '</b><small>' + (c.type==='group'?Number(c.member_count)+' members':'@'+esc(c.other_username||'')) + '</small></div>' +
-    '<button class="icon-btn" title="Chat details" data-action="details">⋯</button></div><div class="chat-log" id="chat-log">' +
-    (state.olderCursor?'<button class="ghost" data-action="older">Load older messages</button>':'') +
-    (!state.messages.length?'<div class="empty"><strong>Say hello</strong>Only the members of this chat can see your messages.</div>':'') +
-    state.messages.map(m => {
-      const mine=m.sender_id===state.user.id;
-      return '<div class="chat-row '+(mine?'mine':'')+'"><div class="bubble-wrap"><div class="bubble">' + (m.deleted_at?'<i>Message deleted</i>':esc(m.body)) + '</div><div class="meta">' + new Date(m.created_at).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})+'</div></div></div>';
-    }).join('') +
-    '</div><div class="composer"><form id="message-form"><input name="body" autocomplete="off" maxlength="4000" placeholder="Message ' + esc(labelFor(c)) + '..." value="' + esc(state.draft) + '"><button class="primary" type="submit">➤</button></form><div class="compose-note">Private to chat members · Not end-to-end encrypted</div></div></section>';
+  if (!c) { state.active=null;return chatPane(); }
+  return '<section class="chat-space">' +
+    '<header class="chat-header"><button class="icon-btn mobile-back" data-action="back" aria-label="Back to conversations">' + ico('back',20) + '</button>' +
+      '<span class="row-avatar chat-person ' + (c.type==='group'?'group':'') + '">' + (c.type==='group'?ico('friends',21):initial(c.other_display_name)) + '</span>' +
+      '<div class="identity"><b>' + esc(labelFor(c)) + '</b><small>' + (c.type==='group'?ico('friends',12) + ' Group · ' + Number(c.member_count) + ' members':ico('lock',12) + ' Private conversation') + '</small></div>' +
+      '<span class="chat-private">' + ico('shield',14) + ' Private</span><button class="icon-btn header-more" title="Conversation details" data-action="details">' + ico('more',21) + '</button></header>' +
+    '<div class="chat-log" id="chat-log"><div class="chat-log-content">' +
+      (state.olderCursor ? '<div class="older-container"><button class="ghost" data-action="older">Load older messages</button></div>' : '') +
+      (!state.messages.length ? '<div class="conversation-empty"><span class="convo-empty-icon">' + ico('spark',28) + '</span><h3>A little hello goes a long way.</h3><p>You are at the beginning of this conversation. Send the first message.</p></div>' : '') +
+      state.messages.map((m,index) => {
+        const mine = m.sender_id === state.user.id;
+        const currentDay = new Date(m.created_at).toDateString();
+        const previousDay = index ? new Date(state.messages[index-1].created_at).toDateString() : '';
+        const daySeparator = currentDay !== previousDay ? '<div class="date-separator"><span>' + esc(new Date(m.created_at).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})) + '</span></div>' : '';
+        return daySeparator + '<div class="chat-row ' + (mine?'mine':'theirs') + '"><div class="bubble-wrap"><div class="bubble">' + (m.deleted_at?'<i>Message deleted</i>':esc(m.body)) + '</div><div class="meta">' +
+          new Date(m.created_at).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}) + '</div></div></div>';
+      }).join('') + '</div></div>' +
+    '<div class="composer"><form id="message-form"><span class="compose-symbol">' + ico('chat',20) + '</span><input name="body" autocomplete="off" maxlength="4000" placeholder="Write a message..." aria-label="Write a message" value="' + esc(state.draft) + '"><button class="send-button" type="submit" title="Send message" aria-label="Send message">' + ico('arrow',21) + '</button></form>' +
+      '<div class="compose-note">' + ico('lock',12) + ' Visible only to chat members · Not end-to-end encrypted</div></div></section>';
 }
 function friendsPane() {
-  return '<section class="chat-space"><div class="page"><div class="eyebrow">YOUR PEOPLE</div><h1>Friends<span style="color:var(--accent)">.</span></h1><p>Search by username. Everyone approves their own friend requests.</p>' +
-    '<div class="cards"><div class="card"><h3>♧ Add a friend</h3><form id="find-user-form" class="add-form"><input name="username" placeholder="Exact username" required><button class="primary" type="submit">Find</button></form>' +
-    (state.friendSearch.length?state.friendSearch.map(p => '<div class="row">' + avatar(p) + '<div class="row-main"><b>' + esc(p.display_name) + '</b><small>@'+esc(p.username)+'</small></div><button class="mini" data-add="'+esc(p.username)+'">Add</button></div>').join(''):'') +
-    '</div><div class="card"><h3>Requests <span class="pill">' + state.requests.filter(r=>r.direction==='in').length + '</span></h3>' +
-    (!state.requests.length?'<p>No friend requests.</p>':'') +
-    state.requests.map(r=>'<div class="row">'+avatar(r.other)+'<div class="row-main"><b>'+esc(r.other.display_name)+'</b><small>'+(r.direction==='in'?'Wants to be friends':'Awaiting reply')+'</small></div>'+(r.direction==='in'?'<button class="mini" data-accept="'+esc(r.id)+'">✓</button><button class="icon-btn" data-decline="'+esc(r.id)+'">×</button>':'<button class="icon-btn" data-cancel="'+esc(r.id)+'" title="Cancel request">×</button>')+'</div>').join('')+
-    '</div></div><div class="card list-card"><h3>All friends <span class="pill">'+state.friends.length+'</span></h3>' +
-    (!state.friends.length?'<div class="empty"><strong>No friends yet</strong>Find someone by their username and send a request.</div>':'') +
-    state.friends.map(f=>'<div class="row">'+avatar(f.other)+'<div class="row-main"><b>'+esc(f.other.display_name)+'</b><small>@'+esc(f.other.username)+'</small></div><button class="primary" data-direct="'+esc(f.other.id)+'">Message</button><button class="icon-btn" title="Remove friend" data-remove="'+esc(f.other.id)+'">×</button></div>').join('')+
-    '</div></div></section>';
+  const incoming = state.requests.filter(r=>r.direction==='in');
+  return '<section class="chat-space"><div class="page friends-page">' +
+    '<header class="page-hero"><div><span class="eyebrow">YOUR INNER CIRCLE</span><h1>People<span class="heading-dot">.</span></h1><p>Real friends, real conversations. Build your circle one person at a time.</p></div><span class="page-hero-icon">' + ico('friends',35) + '</span></header>' +
+    '<div class="stat-strip"><div class="stat-cell"><b>' + state.friends.length + '</b><span>Friends</span></div><div class="stat-cell"><b>' + incoming.length + '</b><span>Incoming requests</span></div><div class="stat-cell"><b>' + state.requests.filter(r=>r.direction==='out').length + '</b><span>Sent requests</span></div></div>' +
+    '<div class="cards"><section class="card add-friend-card"><div class="card-title"><span class="card-icon">' + ico('userplus',19) + '</span><div><h3>Find your people</h3><p>Search by username to connect.</p></div></div>' +
+      '<form id="find-user-form" class="add-form"><input name="username" placeholder="Enter a username" required autocomplete="off"><button class="primary" type="submit">' + ico('search',17) + ' Search</button></form>' +
+      (state.friendSearch.length?'<div class="found-list">' + state.friendSearch.map(p => '<div class="row">' + avatar(p) + '<div class="row-main"><b>' + esc(p.display_name) + '</b><small>@'+esc(p.username)+'</small></div><button class="mini" data-add="'+esc(p.username)+'">' + ico('plus',15) + ' Add</button></div>').join('') + '</div>' : '') +
+    '</section><section class="card requests-card"><div class="card-title"><span class="card-icon alt">' + ico('chat',19) + '</span><div><h3>Friend requests <span class="pill">' + incoming.length + '</span></h3><p>People who want to connect.</p></div></div>' +
+    (!state.requests.length ? '<div class="small-empty">' + ico('check',18) + ' All caught up. No pending requests.</div>' : '') +
+    state.requests.map(r => '<div class="row">' + avatar(r.other) + '<div class="row-main"><b>'+esc(r.other.display_name)+'</b><small>'+(r.direction==='in'?'Sent you a friend request':'Waiting for a response')+'</small></div>'+
+      (r.direction==='in' ? '<button class="mini positive" data-accept="'+esc(r.id)+'" title="Accept">' + ico('check',16) + '</button><button class="icon-btn" data-decline="'+esc(r.id)+'" title="Decline">×</button>' : '<button class="icon-btn" data-cancel="'+esc(r.id)+'" title="Cancel request">×</button>') + '</div>').join('') +
+    '</section></div>' +
+    '<section class="card list-card"><div class="card-title"><span class="card-icon">' + ico('friends',19) + '</span><div><h3>Your friends <span class="pill">'+state.friends.length+'</span></h3><p>The people you can message anytime.</p></div></div>' +
+    (!state.friends.length ? '<div class="friend-empty"><span class="friend-empty-icon">' + ico('friends',29) + '</span><h3>It is better together.</h3><p>Search for someone you know to send your first friend request.</p></div>' : '') +
+    state.friends.map(f => '<div class="row friend-row">' + avatar(f.other,47) + '<div class="row-main"><b>' + esc(f.other.display_name) + '</b><small>@'+esc(f.other.username)+'</small></div><button class="primary friend-message-btn" data-direct="'+esc(f.other.id)+'">'+ico('chat',16)+' Message</button><button class="icon-btn remove-friend" title="Remove friend" data-remove="'+esc(f.other.id)+'">×</button></div>').join('') +
+    '</section></div></section>';
 }
 function settingsPane() {
   const p=state.profile;
-  return '<section class="chat-space"><div class="page"><div class="eyebrow">YOUR IDENTITY</div><h1>Settings<span style="color:var(--accent)">.</span></h1><p>Customize your profile and choose who can contact you.</p><div class="cards">' +
-    '<div class="card"><h3>◉ Your profile</h3><div class="profile-head">'+avatar(p,70)+'<div><b>'+esc(p.display_name)+'</b><div class="muted tiny">@'+esc(p.username)+'</div><label class="upload">Change profile picture<input id="avatar-file" type="file" accept="image/png,image/jpeg,image/webp"></label></div></div>' +
-    '<form id="profile-form" class="form-grid"><label>Display name<input name="display" required maxlength="40" value="'+esc(p.display_name)+'"></label><label>Username<input name="username" required minlength="3" maxlength="20" pattern="[a-z0-9_]{3,20}" value="'+esc(p.username)+'"></label><label>Bio<input name="bio" maxlength="160" value="'+esc(p.bio||'')+'"></label>' +
-    '<label>Accent color</label><div class="colors">' + Object.keys(COLORS).map(color=>'<button type="button" class="color '+(p.accent===color?'active':'')+'" style="background:'+COLORS[color]+'" data-color="'+color+'" title="'+color+'"></button>').join('')+'</div>'+
-    '<label class="checkrow"><input type="checkbox" name="allow" style="width:18px" '+(p.allow_friend_requests?'checked':'')+'>Accept new friend requests</label>' +
-    '<button type="submit" class="primary full">Save changes</button></form></div>' +
-    '<div class="card"><h3>♧ Safety & privacy</h3><div class="notice">Messages are restricted to conversation members, but they are not end-to-end encrypted. Only add friends you know and avoid sharing personal information.</div><h3 style="margin-top:22px">Blocked users</h3>' +
-    (!state.blocks.length?'<p>You have not blocked anyone.</p>':'') +
-    state.blocks.map(b=>'<div class="row">'+avatar(b.other,35)+'<div class="row-main"><b>'+esc(b.other.display_name)+'</b><small>@'+esc(b.other.username)+'</small></div><button class="ghost" data-unblock="'+esc(b.other.id)+'">Unblock</button></div>').join('') +
-    '<button class="ghost full" style="margin-top:26px" data-action="signout">Sign out</button></div></div></div></section>';
+  return '<section class="chat-space"><div class="page settings-page">' +
+    '<header class="page-hero"><div><span class="eyebrow">MAKE DRIFT YOURS</span><h1>Settings<span class="heading-dot">.</span></h1><p>Personalize your space and stay in control of your privacy.</p></div><span class="page-hero-icon">' + ico('settings',33) + '</span></header>' +
+    '<div class="cards settings-cards"><section class="card profile-settings"><div class="settings-cover"><div class="cover-glow"></div><span class="cover-dots">✦ ✦ ✦</span><span class="cover-label">YOUR PROFILE</span></div>' +
+      '<div class="profile-head"><div class="profile-avatar-wrap">' + avatar(p,78) + '</div><div><b>' + esc(p.display_name) + '</b><div class="muted tiny">@'+esc(p.username)+'</div><label class="upload">' + ico('plus',14) + ' Change photo<input id="avatar-file" type="file" accept="image/png,image/jpeg,image/webp"></label></div></div>' +
+      '<div class="settings-inner"><h3>Profile details</h3><p>How your friends see you on DRIFT.</p><form id="profile-form" class="form-grid">' +
+        '<label>Display name<input name="display" required maxlength="40" value="'+esc(p.display_name)+'"></label>' +
+        '<label>Username<input name="username" required minlength="3" maxlength="20" pattern="[a-z0-9_]{3,20}" value="'+esc(p.username)+'"></label>' +
+        '<label>About you<input name="bio" maxlength="160" placeholder="A little something about you" value="'+esc(p.bio||'')+'"></label>' +
+        '<label>Pick your accent</label><div class="colors">' + Object.keys(COLORS).map(color => '<button type="button" class="color '+(p.accent===color?'active':'')+'" style="background:'+COLORS[color]+'" data-color="'+color+'" title="'+color+'" aria-label="Choose '+color+' accent">'+(p.accent===color?ico('check',17):'')+'</button>').join('')+'</div>' +
+        '<label class="checkrow"><input type="checkbox" name="allow" '+(p.allow_friend_requests?'checked':'')+'><span>Allow new friend requests</span></label>' +
+        '<button type="submit" class="primary full">' + ico('check',17) + ' Save profile changes</button></form></div></section>' +
+    '<section class="card privacy-settings"><div class="card-title"><span class="card-icon">' + ico('shield',21) + '</span><div><h3>Privacy & security</h3><p>Your account. Your boundaries.</p></div></div>' +
+      '<div class="privacy-feature">' + ico('lock',19) + '<div><b>Friends-first messaging</b><p>Only accepted friends can start private chats with you. Messages are not end-to-end encrypted.</p></div></div>' +
+      '<div class="settings-section-title"><h3>Blocked accounts</h3><span class="pill">' + state.blocks.length + '</span></div>' +
+      (!state.blocks.length ? '<div class="blocked-empty">' + ico('shield',22) + '<span>No blocked accounts. You are all set.</span></div>' : '') +
+      state.blocks.map(b => '<div class="row">' + avatar(b.other,38) + '<div class="row-main"><b>'+esc(b.other.display_name)+'</b><small>@'+esc(b.other.username)+'</small></div><button class="ghost" data-unblock="'+esc(b.other.id)+'">Unblock</button></div>').join('') +
+      '<div class="settings-signout"><button class="ghost full" data-action="signout">' + ico('logout',18) + ' Sign out of DRIFT</button></div></section></div></div></section>';
 }
 function render() {
   if (!state.user) return authScreen();

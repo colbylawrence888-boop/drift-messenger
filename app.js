@@ -58,10 +58,23 @@ function authScreen() {
     (m === 'forgot' ? '' : '<label>' + (m === 'reset' ? 'New password' : 'Password') + '<input type="password" name="password" minlength="8" autocomplete="' + (m === 'signin' ? 'current-password' : 'new-password') + '" required placeholder="At least 8 characters"></label>') +
     '<button class="primary full" type="submit">' + (m === 'signup' ? 'Create account' : m === 'forgot' ? 'Send reset email' : m === 'reset' ? 'Update password' : 'Sign in') + '</button></form>' +
     '<div class="auth-links">' + (m === 'signin' ? '<button class="link-btn" data-auth="forgot">Forgot password?</button><button class="link-btn" data-auth="signup">New here? Create account</button>' : '<button class="link-btn" data-auth="signin">Back to sign in</button>') + '</div>' +
-    '<div class="auth-warning">Your account uses email and password. If you just signed up, confirm your email before signing in. DRIFT has no phone-number requirement.</div>' +
+    '<div class="auth-warning">Sign in with your DRIFT email and password. Problems will appear as a message, so you can tell whether sign-in or chat loading failed.</div>' +
     '</section></main>';
   $('#auth-form').addEventListener('submit', handleAuth);
   root.querySelectorAll('[data-auth]').forEach(btn => btn.addEventListener('click', () => { state.authMode = btn.dataset.auth; authScreen(); }));
+  const passwordInput = $('#auth-form input[type="password"]');
+  if (passwordInput) {
+    const show = document.createElement('button');
+    show.type = 'button';
+    show.className = 'link-btn';
+    show.style.textAlign = 'left';
+    show.textContent = 'Show password';
+    show.addEventListener('click', () => {
+      passwordInput.type = passwordInput.type === 'password' ? 'text' : 'password';
+      show.textContent = passwordInput.type === 'password' ? 'Show password' : 'Hide password';
+    });
+    passwordInput.closest('label').appendChild(show);
+  }
 }
 async function handleAuth(e) {
   e.preventDefault();
@@ -71,14 +84,32 @@ async function handleAuth(e) {
   const password = String(form.get('password') || '');
   await withBusy(async () => {
     if (mode === 'signin') {
-      requireOk(await sb.auth.signInWithPassword({ email, password }));
+      try {
+        requireOk(await sb.auth.signInWithPassword({ email, password }));
+      } catch (loginError) {
+        if (loginError?.code === 'email_not_confirmed' || /email not confirmed/i.test(loginError?.message || '')) {
+          throw new Error('This account is awaiting confirmation from the email provider. Please contact the site owner.');
+        }
+        if (/invalid login credentials/i.test(loginError?.message || '')) {
+          throw new Error('Email or password not recognized. Check your details or use Forgot password.');
+        }
+        throw loginError;
+      }
       await startSignedIn();
     } else if (mode === 'signup') {
       const username = String(form.get('username')).trim().toLowerCase();
       if (!/^[a-z0-9_]{3,20}$/.test(username)) throw new Error('Username must be 3–20 letters, numbers or underscores');
-      requireOk(await sb.auth.signUp({ email, password, options: { data: { username, display_name: String(form.get('display') || username) } } }));
-      note('Account requested. Check your email to confirm, then sign in.');
-      state.authMode = 'signin'; authScreen();
+      const created = requireOk(await sb.auth.signUp({ email, password, options: {
+        data: { username, display_name: String(form.get('display') || username) }
+      } }));
+      if (created.session) {
+        await startSignedIn();
+        note('Account created and signed in.');
+      } else {
+        state.authMode = 'signin';
+        authScreen();
+        note('Account created. Your email provider currently requires confirmation before sign-in.');
+      }
     } else if (mode === 'forgot') {
       requireOk(await sb.auth.resetPasswordForEmail(email));
       note('If that address has an account, check its inbox for a reset link.');
@@ -90,18 +121,38 @@ async function handleAuth(e) {
     }
   });
 }
+let startingSignIn = null;
 async function startSignedIn() {
-  const { data: { user }, error } = await sb.auth.getUser();
-  if (error) throw error;
-  state.user = user;
-  if (!user) { state.profile = null; authScreen(); return; }
-  let p = requireOk(await sb.from('profiles').select('*').eq('id', user.id).maybeSingle());
-  if (!p) { root.innerHTML = '<div class="splash"><p>Preparing your profile...</p></div>'; await new Promise(r => setTimeout(r, 550)); p = requireOk(await sb.from('profiles').select('*').eq('id', user.id).maybeSingle()); }
-  if (!p) { state.profile = null; note('Your profile could not be created. Contact the site owner.'); authScreen(); return; }
-  state.profile = await decorated(p);
-  await refreshAll();
-  openRealtime();
-  render();
+  if (startingSignIn) return startingSignIn;
+  startingSignIn = (async () => {
+    const { data: { user }, error } = await sb.auth.getUser();
+    if (error) throw error;
+    if (!user) { state.user = null; state.profile = null; authScreen(); return; }
+    state.user = user;
+    let p = requireOk(await sb.from('profiles').select('*').eq('id', user.id).maybeSingle());
+    if (!p) {
+      await new Promise(resolve => setTimeout(resolve, 600));
+      p = requireOk(await sb.from('profiles').select('*').eq('id', user.id).maybeSingle());
+    }
+    if (!p) {
+      state.profile = null;
+      root.innerHTML = '<div class="auth-screen"><div class="auth-box"><h1>Account needs setup</h1><p>Sign-in worked but DRIFT could not load your profile. Try reloading or ask the site owner to repair the profile record.</p><button class="primary" onclick="location.reload()">Retry</button><button class="ghost" style="margin-top:12px" id="recovery-signout">Sign out</button></div></div>';
+      $('#recovery-signout')?.addEventListener('click', async () => { await sb.auth.signOut(); state.user = null; state.profile = null; authScreen(); });
+      note('Signed in, but profile could not be loaded.');
+      return;
+    }
+    state.profile = await decorated(p);
+    // Display signed-in UI before optional chats load, so a chat error doesn't look like a failed login.
+    render();
+    try { await refreshAll(); render(); }
+    catch (loadError) {
+      console.error('DRIFT chat loading failed after successful sign-in', loadError);
+      note('Sign-in worked. Chats could not load: ' + (loadError?.message || 'please refresh'));
+    }
+    openRealtime();
+  })();
+  try { return await startingSignIn; }
+  finally { startingSignIn = null; }
 }
 async function refreshAll() {
   if (!state.user) return;
